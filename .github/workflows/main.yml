@@ -1,85 +1,62 @@
 name: Release Statically Linked Rust Binary
- 
+
 on:
   push:
     tags:
       - 'v*'  # Trigger on tags like 'v1.0.0'
- 
+
 jobs:
-  build-linux:
+  build:
     runs-on: ubuntu-latest
     strategy:
       matrix:
         target:
           - x86_64-unknown-linux-musl       # Linux (musl)
           - aarch64-unknown-linux-musl      # ARM Linux (musl)
- 
+          - x86_64-pc-windows-msvc          # Windows (MSVC)
+
     env:
       BINARY_NAME: smart_saverz
- 
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
- 
+
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
- 
+
       - name: Install Cross
         run: cargo install cross
- 
+
       - name: Install Target for Cross Compilation
         run: rustup target add ${{ matrix.target }}
- 
+
       - name: Build with Cross
         run: cross build --target ${{ matrix.target }} --release --verbose
- 
-      - name: Create Release Archive (Linux)
+
+      - name: Create Release Archive
         run: |
           mkdir -p release
-          cp target/${{ matrix.target }}/release/$BINARY_NAME release/
-          tar -czvf ${{ matrix.target }}.tar.gz -C release $BINARY_NAME
- 
-      - name: Upload Release Assets (Linux)
+
+          if [[ "${{ matrix.target }}" == *"windows"* ]]; then
+            # Corrected variable usage for Windows: use $BINARY_NAME
+            cp target/${{ matrix.target }}/release/$BINARY_NAME.exe release/
+            zip -r ${{ matrix.target }}.zip release
+          elif [[ "${{ matrix.target }}" == *"darwin"* ]]; then
+            # For macOS targets, tar and gzipped
+            cp target/${{ matrix.target }}/release/$BINARY_NAME release/
+            tar -czvf ${{ matrix.target }}.tar.gz -C release $BINARY_NAME
+          else
+            # For Linux targets, tar and gzipped
+            cp target/${{ matrix.target }}/release/$BINARY_NAME release/
+            tar -czvf ${{ matrix.target }}.tar.gz -C release $BINARY_NAME
+          fi
+
+      - name: Upload Release Assets
         uses: softprops/action-gh-release@v2
         with:
           files: |
             *.tar.gz
-        env:
-          GITHUB_TOKEN: ${{ secrets.SSA }}
- 
-  build-windows:
-    runs-on: windows-latest
-    strategy:
-      matrix:
-        target:
-          - x86_64-pc-windows-msvc  # Windows (MSVC)
- 
-    env:
-      BINARY_NAME: smart_saverz.exe
- 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
- 
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
- 
-      - name: Install Target for Windows
-        run: rustup target add ${{ matrix.target }}
- 
-      - name: Build for Windows
-        run: cargo build --target ${{ matrix.target }} --release --verbose
- 
-      - name: Create Release Archive (Windows)
-        run: |
-          mkdir release
-          copy target\${{ matrix.target }}\release\%BINARY_NAME% release\
-          powershell Compress-Archive -Path release\* -DestinationPath ${{ matrix.target }}.zip
- 
-      - name: Upload Release Assets (Windows)
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
             *.zip
         env:
           GITHUB_TOKEN: ${{ secrets.SSA }}
