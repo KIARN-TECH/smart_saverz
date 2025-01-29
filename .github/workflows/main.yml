@@ -13,7 +13,7 @@ jobs:
         target:
           - x86_64-unknown-linux-musl       # Linux (musl)
           - aarch64-unknown-linux-musl      # ARM Linux (musl)
-          - x86_64-pc-windows-gnu           # Windows (GNU)
+          - x86_64-pc-windows-gnu           # Windows (GNU) See whether it works
 
     env:
       BINARY_NAME: smart_saverz
